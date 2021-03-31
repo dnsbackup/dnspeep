@@ -15,6 +15,7 @@ use std::str;
 use std::sync::{Arc, Mutex};
 use tokio::time::{delay_for, Duration};
 
+#[derive(Clone)]
 struct OrigPacket {
     qname: String,
     typ: String,
@@ -150,10 +151,10 @@ fn print_packet(
         .expect("Error: Expected UDP packet");
     // Parse DNS data
     let dns_packet = DNSPacket::parse(packet.payload).wrap_err("Failed to parse DNS packet")?;
-    let question = &dns_packet.questions[0];
     let id = dns_packet.header.id;
     // This map is a list of requests that haven't gotten a response yet
     if !map.contains_key(&id) {
+        let question = &dns_packet.questions[0];
         map.insert(
             id,
             OrigPacket {
@@ -166,7 +167,7 @@ fn print_packet(
         );
         return Ok(());
     }
-    let orig_packet = map.get(&id).unwrap(); // this unwrap() is ok because we know it's in the map
+    let orig_packet = map.get(&id).unwrap().clone(); // this unwrap() is ok because we know it's in the map
     if (format!("{}", src_ip).as_str(), udp_header.source_port)
         != (orig_packet.server_ip.as_str(), orig_packet.server_port)
     {
@@ -192,8 +193,8 @@ fn print_packet(
     };
     println!(
         "{:5} {:30} {:20} {}",
-        format!("{:?}", question.qtype),
-        question.qname.to_string(),
+        format!("{:?}", &orig_packet.typ),
+        &orig_packet.qname,
         src_ip,
         response
     );
